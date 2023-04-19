@@ -29,7 +29,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 std::string str0{ "STRING!!!" };
 
 //整数を文字列にする
-std::string str1{ std::to_string(10) };
+std::string str1{ std::to_string(10)};
+
+
 
 void Log(const std::string& message) {
 	OutputDebugStringA(message.c_str());
@@ -69,7 +71,7 @@ int WINAPI WinMain(
 		//ソフトウェアアダプタでなければ採用!
 		if (!(adapterDesc.Flags & DXGI_ADAPTER_FLAG3_SOFTWARE)) {
 			//採用したアダプタの情報をログに出力。wstringの方なので注意
-			//Log(std::format(L"Use Adapater:{}\n", adapterDesc.Description));
+			Log(ConvertString(std::format(L"Use Adapater:{}\n", adapterDesc.Description)));
 			break;
 		}
 		useAdapter = nullptr;//ソフトウェアアダプタの場合は見なかったことにする
@@ -78,6 +80,27 @@ int WINAPI WinMain(
 	//適切なアダプタが見つからなかったので起動できない
 	assert(useAdapter != nullptr);
 
+	ID3D12Device* device = nullptr;
+
+	//機能レベルとログ出力用の文字列
+	D3D_FEATURE_LEVEL featureLevels[] = {
+		D3D_FEATURE_LEVEL_12_2, D3D_FEATURE_LEVEL_12_1, D3D_FEATURE_LEVEL_12_0
+	};
+	const char* featureLevelStrings[] = { "12.2", "12.1", "12.0" };
+	//高い順に生成できるか試していく
+	for (size_t i = 0; i < _countof(featureLevels); ++i) {
+		//採用したアダプターでデバイスを生成
+		hr = D3D12CreateDevice(useAdapter, featureLevels[i], IID_PPV_ARGS(&device));
+		//指定した機能レベルでデバイスが生成できたかを確認
+		if (SUCCEEDED(hr)) {
+			//生成でかたのでログ出力を行ってループを抜ける
+			Log(std::format("FeatureLevel : {}\n", featureLevelStrings[i]));
+			break;
+		}
+	}
+	//デバイスを生成が上手くいかなかったので起動できない
+	assert(device != nullptr);
+	Log("Complet create D3D12Device!!!\n");//初期化完了のログをだす
 	//クライアント領域のサイズ
 	const int32_t kClientWidth = 1280;
 	const int32_t kClientHeight = 720;
@@ -117,7 +140,8 @@ int WINAPI WinMain(
 	//ウィンドウを表示する
 	ShowWindow(hwnd, SW_SHOW);
 
-	
+	Log(str0);
+	Log(str1);
 
 	MSG msg{};
 	while (msg.message != WM_QUIT) {
