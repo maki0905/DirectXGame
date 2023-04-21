@@ -52,6 +52,55 @@ int WINAPI WinMain(
 	_In_ LPSTR lpCmdLine,
 	_In_ int nShowCmd) {
 
+	//クライアント領域のサイズ
+	const int32_t kClientWidth = 1280;
+	const int32_t kClientHeight = 720;
+
+	WNDCLASS wc{};
+	//ウィンドウプロシージャ
+	wc.lpfnWndProc = WindowProc;
+	//ウィンドウクラス名(なんでも良い)
+	wc.lpszClassName = L"CG2WindowClass";
+	//インスタンスハンドル
+	wc.hInstance = GetModuleHandle(nullptr);
+	//カーソル
+	wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	
+	//ウィンドウクラスを登録する
+	RegisterClass(&wc);
+
+	//ウィンドウサイズを表す構造体にクライアント領域を入れる
+	RECT wrc = { 0, 0, kClientWidth, kClientHeight };
+	
+	//クライアント領域を元に実際のサイズにwrcを変更してもらう
+	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, false);
+
+	//ウィンドウの生成
+	HWND hwnd = CreateWindow(
+		wc.lpszClassName,     // 利用するクラス名
+		L"CG2WindowClass",	  // タイトルバーの文字(なんでも良い)
+		WS_OVERLAPPEDWINDOW,  // よく見るウィンドウスタイル
+		CW_USEDEFAULT,		  // 表示x座標
+		CW_USEDEFAULT,		  // 表示y座標
+		wrc.right - wrc.left, // ウィンドウ横幅
+		wrc.bottom - wrc.top, // ウィンドウ縦幅
+		nullptr,			  // 親ウィンドウハンドル
+		nullptr,			  // メニューハンドル
+		wc.hInstance,		  // インスタンスハンドル
+		nullptr);			  // オプション
+//#ifdef _DEBUG
+//	ID3D12Debug1* debugController = nullptr;
+//	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
+//		//デバッグレイヤーを有効化する
+//		debugController->EnableDebugLayer();
+//		//さらにGPU側でもチェックを行うようにする
+//		debugController->SetEnableGPUBasedValidation(TRUE);
+//	}
+//#endif // _DEBUG
+
+	//ウィンドウを表示する
+	ShowWindow(hwnd, SW_SHOW);
+
 	//DXGIファクトリーの生成
 	IDXGIFactory7* dxgiFactory = nullptr;
 	//HRESULTはWindows系のエラーコードであり
@@ -116,7 +165,7 @@ int WINAPI WinMain(
 			// https://stackoverflow.com/questions/69805245/directx-12-application-is-crashing-in-window-11
 			D3D12_MESSAGE_ID_RESOURCE_BARRIER_MISMATCHING_COMMAND_LIST_TYPE
 		};
-			//抑制するレベル
+		//抑制するレベル
 		D3D12_MESSAGE_SEVERITY severities[] = { D3D12_MESSAGE_SEVERITY_INFO };
 		D3D12_INFO_QUEUE_FILTER filter{};
 		filter.DenyList.NumIDs = _countof(denyIds);
@@ -129,56 +178,6 @@ int WINAPI WinMain(
 		infoQueue->Release();
 	}
 #endif // _DEBUG
-
-
-	//クライアント領域のサイズ
-	const int32_t kClientWidth = 1280;
-	const int32_t kClientHeight = 720;
-
-	WNDCLASS wc{};
-	//ウィンドウプロシージャ
-	wc.lpfnWndProc = WindowProc;
-	//ウィンドウクラス名(なんでも良い)
-	wc.lpszClassName = L"CG2WindowClass";
-	//インスタンスハンドル
-	wc.hInstance = GetModuleHandle(nullptr);
-	//カーソル
-	wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	
-	//ウィンドウクラスを登録する
-	RegisterClass(&wc);
-
-	//ウィンドウサイズを表す構造体にクライアント領域を入れる
-	RECT wrc = { 0, 0, kClientWidth, kClientHeight };
-	
-	//クライアント領域を元に実際のサイズにwrcを変更してもらう
-	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, false);
-
-	//ウィンドウの生成
-	HWND hwnd = CreateWindow(
-		wc.lpszClassName,     // 利用するクラス名
-		L"CG2WindowClass",	  // タイトルバーの文字(なんでも良い)
-		WS_OVERLAPPEDWINDOW,  // よく見るウィンドウスタイル
-		CW_USEDEFAULT,		  // 表示x座標
-		CW_USEDEFAULT,		  // 表示y座標
-		wrc.right - wrc.left, // ウィンドウ横幅
-		wrc.bottom - wrc.top, // ウィンドウ縦幅
-		nullptr,			  // 親ウィンドウハンドル
-		nullptr,			  // メニューハンドル
-		wc.hInstance,		  // インスタンスハンドル
-		nullptr);			  // オプション
-#ifdef _DEBUG
-	ID3D12Debug1* debugController = nullptr;
-	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
-		//デバッグレイヤーを有効化する
-		debugController->EnableDebugLayer();
-		//さらにGPU側でもチェックを行うようにする
-		debugController->SetEnableGPUBasedValidation(TRUE);
-	}
-#endif // _DEBUG
-
-	//ウィンドウを表示する
-	ShowWindow(hwnd, SW_SHOW);
 
 	//コマンドキューを生成する
 	ID3D12CommandQueue* commandQueue = nullptr;
@@ -259,6 +258,7 @@ int WINAPI WinMain(
 		}
 		else {
 			//ゲームの処理
+			
 			//これから書き込むバッファのインデックスを取得
 			UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
 			//描画先のRTVを設定する
@@ -269,7 +269,7 @@ int WINAPI WinMain(
 			//コマンドリストの内容を確定させる。すべてのコマンドを積んでからCloseすること
 			hr = commandList->Close();
 			assert(SUCCEEDED(hr));
-
+			
 			//GPUにコマンドリストの実行を行わせる
 			ID3D12CommandList* commandLists[] = { commandList };
 			commandQueue->ExecuteCommandLists(1, commandLists);
@@ -280,6 +280,7 @@ int WINAPI WinMain(
 			assert(SUCCEEDED(hr));
 			hr = commandList->Reset(commandAllocator, nullptr);
 			assert(SUCCEEDED(hr));
+		
 		}
 	}
 
