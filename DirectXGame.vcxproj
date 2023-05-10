@@ -95,12 +95,14 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="ConvertString.h" />
     <ClInclude Include="DirectXGame.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="MathFunction.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ConvertString.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MathFunction.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DirectXGame.rc" />
