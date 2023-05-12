@@ -409,3 +409,43 @@ Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio, float nearClip
 	result.m[3][2] = (-nearClip * farClip) / (farClip - nearClip);
 	return result;
 }
+
+Matrix4x4 MakeOrthographicMatrix(float left, float top, float right, float bottom, float nearClip, float farClip)
+{
+	Matrix4x4 result;
+	for (int line = 0; line < 4; line++) {
+		for (int column = 0; column < 4; column++) {
+			result.m[line][column] = 0;
+		}
+	}
+
+	result.m[0][0] = 2 / (right - left);
+	result.m[1][1] = 2 / (top - bottom);
+	result.m[2][2] = 1 / (farClip - nearClip);
+	result.m[3][3] = 1;
+	result.m[3][0] = (left + right) / (left - right);
+	result.m[3][1] = (top + bottom) / (bottom - top);
+	result.m[3][2] = nearClip / (nearClip - farClip);
+
+	return result;
+}
+
+Matrix4x4 MakeViewportMatrix(float left, float top, float width, float height, float minDepth, float maxDepth)
+{
+	Matrix4x4 result;
+	for (int line = 0; line < 4; line++) {
+		for (int column = 0; column < 4; column++) {
+			result.m[line][column] = 0;
+		}
+	}
+
+	result.m[0][0] = width / 2.0f;
+	result.m[1][1] = -height / 2.0f;
+	result.m[2][2] = maxDepth - minDepth;
+	result.m[3][3] = 1;
+	result.m[3][0] = left + (width / 2.0f);
+	result.m[3][1] = top + (height / 2.0f);
+	result.m[3][2] = minDepth;
+
+	return result;
+}
