@@ -15,6 +15,9 @@
 #include "externals/DirectXTex/DirectXTex.h"
 #include "externals/DirectXTex/d3dx12.h"
 #include <vector>
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #pragma comment(lib, "d3d12")
 #pragma comment(lib, "dxgi.lib")
@@ -109,6 +112,8 @@ int WINAPI WinMain(
 	//クライアント領域のサイズ
 	const int32_t kClientWidth = 1280;
 	const int32_t kClientHeight = 720;
+
+	const uint32_t kSubdivision = 16;
 
 	WNDCLASS wc{};
 	//ウィンドウプロシージャ
@@ -449,14 +454,14 @@ int WINAPI WinMain(
 	hr = device->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineState));
 	assert(SUCCEEDED(hr));
 
-	ID3D12Resource* vertexResource = CreateBufferResource(device, sizeof(VertexData) * 6);
+	ID3D12Resource* vertexResource = CreateBufferResource(device, sizeof(VertexData) * kSubdivision * kSubdivision * 6/*sizeof(VertexData) * 6*/);
 
 	// 頂点バッファビューを作成する
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
 	// リソースの先頭のアドレスから使う
 	vertexBufferView.BufferLocation = vertexResource->GetGPUVirtualAddress();
 	// 使用するリソースのサイズは頂点3つ分のサイズ
-	vertexBufferView.SizeInBytes = sizeof(VertexData) * 6;
+	vertexBufferView.SizeInBytes = sizeof(VertexData) * kSubdivision * kSubdivision * 6/*sizeof(VertexData) * 6*/;
 	// 1頂点当たりのサイズ
 	vertexBufferView.StrideInBytes = sizeof(VertexData);
 
@@ -464,24 +469,80 @@ int WINAPI WinMain(
 	VertexData* vertexData = nullptr;
 	// 書き込むためのアドレスを取得
 	vertexResource->Map(0, nullptr, reinterpret_cast<void**>(&vertexData));
-	// 左下
-	vertexData[0].position = { -0.5f, -0.5f, 0.0f, 1.0f };
-	vertexData[0].texcoord = { 0.0f, 1.0f };
-	//上
-	vertexData[1].position = { 0.0f, 0.5f, 0.0f, 1.0f };
-	vertexData[1].texcoord = { 0.5f, 0.0f };
-	//右下
-	vertexData[2].position = { 0.5f, -0.5f, 0.0f, 1.0f };
-	vertexData[2].texcoord = { 1.0f, 1.0f };
-	// 左下
-	vertexData[3].position = { -0.5f, -0.5f, 0.5f, 1.0f };
-	vertexData[3].texcoord = { 0.0f, 1.0f };
-	//上
-	vertexData[4].position = { 0.0f, 0.0f, 0.0f, 1.0f };
-	vertexData[4].texcoord = { 0.5f, 0.0f };
-	//右下
-	vertexData[5].position = { 0.5f, -0.5f, -0.5f, 1.0f };
-	vertexData[5].texcoord = { 1.0f, 1.0f };
+	// 経度分割1つ分の角度 φ
+	const float kLonEvery = float(M_PI) * 2.0f / float(kSubdivision);
+	// 緯度分割1つ分の角度 θ
+	const float kLatEvery = float(M_PI) / float(kSubdivision);
+	// 緯度の方向に分割
+	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex) {
+		float lat = -float(M_PI) / 2.0f + kLatEvery * latIndex;// θ
+		float v = 1.0f - float(latIndex) / float(kSubdivision);
+		// 経度の方向に分割しながら線を描く
+		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
+			uint32_t start = (latIndex * kSubdivision + lonIndex) * 6;
+			float lon = lonIndex * kLonEvery;// φ
+			float u = float(lonIndex) / float(kSubdivision);
+	
+			// 頂点にデータを入力する。基準点a
+			vertexData[start].position.x = cos(lat) * cos(lon);
+			vertexData[start].position.y = sin(lat);
+			vertexData[start].position.z = cos(lat) * sin(lon);
+			vertexData[start].position.w = 1.0f;
+			vertexData[start].texcoord = { u, v + 1.0f / float(kSubdivision) };
+			// b
+			vertexData[start + 1].position.x = cos(lat + kLatEvery) * cos(lon);
+			vertexData[start + 1].position.y = sin(lat + kLatEvery);
+			vertexData[start + 1].position.z = cos(lat + kLatEvery) * sin(lon);
+			vertexData[start + 1].position.w = 1.0f;
+			vertexData[start + 1].texcoord = { u, v };
+			// c
+			vertexData[start + 2].position.x = cos(lat) * cos(lon + kLonEvery);
+			vertexData[start + 2].position.y = sin(lat);
+			vertexData[start + 2].position.z = cos(lat) * sin(lon + kLonEvery);
+			vertexData[start + 2].position.w = 1.0f;
+			vertexData[start + 2].texcoord = { u + 1.0f / float(kSubdivision), v + 1.0f / float(kSubdivision) };
+			// b
+			vertexData[start + 3].position.x = cos(lat + kLatEvery) * cos(lon);
+			vertexData[start + 3].position.y = sin(lat + kLatEvery);
+			vertexData[start + 3].position.z = cos(lat + kLatEvery) * sin(lon);
+			vertexData[start + 3].position.w = 1.0f;
+			vertexData[start + 3].texcoord = { u, v };
+			// d
+			vertexData[start + 4].position.x = cos(lat + kLatEvery) * cos(lon + kLonEvery);
+			vertexData[start + 4].position.y = sin(lat + kLatEvery);
+			vertexData[start + 4].position.z = cos(lat + kLatEvery) * sin(lon + kLonEvery);
+			vertexData[start + 4].position.w = 1.0f;
+			vertexData[start + 4].texcoord = { u + 1.0f / float(kSubdivision), v};
+			// c
+			vertexData[start + 5].position.x = cos(lat) * cos(lon + kLonEvery);
+			vertexData[start + 5].position.y = sin(lat);
+			vertexData[start + 5].position.z = cos(lat) * sin(lon + kLonEvery);
+			vertexData[start + 5].position.w = 1.0f;
+			vertexData[start + 5].texcoord = { u + 1.0f / float(kSubdivision) , v + 1.0f / float(kSubdivision) };
+
+
+
+		}
+
+	}
+	//// 左下
+	//vertexData[0].position = { -0.5f, -0.5f, 0.0f, 1.0f };
+	//vertexData[0].texcoord = { 0.0f, 1.0f };
+	////上
+	//vertexData[1].position = { 0.0f, 0.5f, 0.0f, 1.0f };
+	//vertexData[1].texcoord = { 0.5f, 0.0f };
+	////右下
+	//vertexData[2].position = { 0.5f, -0.5f, 0.0f, 1.0f };
+	//vertexData[2].texcoord = { 1.0f, 1.0f };
+	//// 左下
+	//vertexData[3].position = { -0.5f, -0.5f, 0.5f, 1.0f };
+	//vertexData[3].texcoord = { 0.0f, 1.0f };
+	////上
+	//vertexData[4].position = { 0.0f, 0.0f, 0.0f, 1.0f };
+	//vertexData[4].texcoord = { 0.5f, 0.0f };
+	////右下
+	//vertexData[5].position = { 0.5f, -0.5f, -0.5f, 1.0f };
+	//vertexData[5].texcoord = { 1.0f, 1.0f };
 	// ビューポート
 	D3D12_VIEWPORT viewport{};
 	// クライアント領域のサイズと一緒にして画面全体に表示
@@ -520,9 +581,10 @@ int WINAPI WinMain(
 
 	//Transform変数を作る
 	Transform transform{ {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} };
-	Transform cameraTransform{ {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -5.0f} };
+	Transform cameraTransform{ {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -10.0f} };
 	Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, float(kClientWidth) / float(kClientHeight), 0.1f, 100.0f);
-	
+	Matrix4x4 viewportMatrix = MakeViewportMatrix(0, 0, float(kClientWidth), float(kClientHeight), 0.0f, 1.0f);
+
 	//ImGuiの初期化。詳細はさして重要ではないので解説は省略する
 	//こういうもんである
 	IMGUI_CHECKVERSION();
@@ -610,6 +672,9 @@ int WINAPI WinMain(
 	*transformationMatrixDataSprite = MakeIdentity4x4();
 
 	Transform transformSprite{ {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f} };
+	
+	
+
 
 	MSG msg{};
 	while (msg.message != WM_QUIT) {
@@ -624,6 +689,8 @@ int WINAPI WinMain(
 			ImGui_ImplWin32_NewFrame();
 			ImGui::NewFrame();
 			//ゲームの処理
+
+			
 			
 			// Sprite用のworldViewProjectionMatrixを作る
 			Matrix4x4 worldMatrixSprite = MakeAffineMatrix(transformSprite.scale, transformSprite.rotate, transformSprite.translate);
@@ -634,7 +701,7 @@ int WINAPI WinMain(
 			
 			//開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
 			ImGui::Begin("Debug");
-			ImGui::SliderFloat3("transformationSprite", &transformSprite.translate.x, -1000.0f, 1000.0f, "%0.3f");
+			/*ImGui::SliderFloat3("transformationSprite", &transformSprite.translate.x, -1000.0f, 1000.0f, "%0.3f");*/
 			ImGui::End();
 			ImGui::ShowDemoWindow();
 			//ImGuiの内部コマンドを生成する
@@ -680,14 +747,14 @@ int WINAPI WinMain(
 			//SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
 			commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
 			// 描画!(DrawCall/ドローコール)。3頂点で1つのインスタンス。インスタンスについては今後
-			commandList->DrawInstanced(6, 1, 0, 0);
+			commandList->DrawInstanced((kSubdivision * kSubdivision * 6), 1, 0, 0);
 
 			// Spriteの描画。変更が必要なものだけ変更する
 			commandList->IASetVertexBuffers(0, 1, &vertexBufferViewSprite); // VBVを設定
 			// TransformationMatrixCBufferの場所を設定
 			commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
 			// 描画!(DrawCall/ドローコール)。3頂点で1つのインスタンス。インスタンスについては今後
-			commandList->DrawInstanced(6, 1, 0, 0);
+			commandList->DrawInstanced( 6, 1, 0, 0);
 
 			//実際のcommandListのImGuiの描画コマンドを積む
 			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
@@ -731,8 +798,9 @@ int WINAPI WinMain(
 			Matrix4x4 viewMatrix = Inverse(cameraMatrix);
 			Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, float(kClientWidth) / float(kClientHeight), 0.1f, 100.0f);
 			Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
-			*wvpData = worldMatrix;
-
+			*wvpData = worldViewProjectionMatrix;
+			
+			
 			
 		
 		}

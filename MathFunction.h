@@ -24,7 +24,7 @@ struct Transform {
 };
 
 // ベクトルの加法
-//Vector3 Add(Vector3& v1, Vector3& v2);
+Vector3 Add(const Vector3& v1, const Vector3& v2);
 // ベクトルの減法
 //Vector3 Subtract(Vector3& v1, Vector3 v2);
 // スカラー倍
@@ -43,6 +43,8 @@ struct Transform {
 Matrix4x4 Multiply(const Matrix4x4& m1, const Matrix4x4& m2);
 // 逆行列
 Matrix4x4 Inverse(const Matrix4x4& m);
+// 座標変換
+Vector3 Transform_v3(const Vector3& vector, const Matrix4x4& matrix);
 
 // 平行移動行列
 Matrix4x4 MakeTranslateMatrix(const Vector3& translate);
