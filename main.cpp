@@ -102,6 +102,11 @@ struct VertexData {
 	Vector3 normal;
 };
 
+struct Material {
+	Vector4 color;
+	int32_t enableLighting;
+};
+
 //Windowsあぷりでのエントリーポイント(main関数)
 int WINAPI WinMain(
 	_In_ HINSTANCE hInstance,
@@ -720,6 +725,15 @@ int WINAPI WinMain(
 	
 	bool useMonsterBall = true;
 
+	// Sprite用のマテリアルリソースを作る
+	ID3D12Resource* materialResourceSprite = CreateBufferResource(device, sizeof(Material));
+
+	Material* materialDataSprite = nullptr;
+
+	materialResourceSprite->Map(0, nullptr, reinterpret_cast<void**>(&materialDataSprite));
+	materialDataSprite->color = { 1, 1, 1,1 };
+	materialDataSprite->enableLighting = false;
+
 
 	MSG msg{};
 	while (msg.message != WM_QUIT) {
@@ -788,6 +802,7 @@ int WINAPI WinMain(
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			//マテリアル用のCBufferの場所を設定
 			commandList->SetGraphicsRootConstantBufferView(0, materialResource->GetGPUVirtualAddress());
+			commandList->SetGraphicsRootConstantBufferView(0, materialResourceSprite->GetGPUVirtualAddress());
 			//wvp用のCBufferの場所を設定
 			commandList->SetGraphicsRootConstantBufferView(1, wvpResource->GetGPUVirtualAddress());
 			//SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
