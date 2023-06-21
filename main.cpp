@@ -114,7 +114,7 @@ struct TransformtionMatrix {
 
 struct DirectionalLight {
 	Vector4 color; // ライトの色
-	Vector4 direction; // ライトの向き
+	Vector3 direction; // ライトの向き
 	float intensity; // 輝度
 };
 
@@ -592,13 +592,15 @@ int WINAPI WinMain(
 	scissorRect.bottom = kClientHeight;
 
 	//マテリアル用のリソースを作る。今回はcolor1つ分のサイズを用意する
-	ID3D12Resource* materialResource = CreateBufferResource(device, sizeof(Vector4));
+	ID3D12Resource* materialResource = CreateBufferResource(device, sizeof(Material));
 	//マテリアルにデータを書き込む
-	Vector4* materialData = nullptr;
+	//Vector4* materialData = nullptr;
+	Material* materialData = nullptr;
 	//書き込むためのアドレスを取得
 	materialResource->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
 	//今回は赤を書き込んでみる
-	*materialData = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+	materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+	materialData->enableLighting = true;
 
 	//WVP用のリソースを作る。Matrix4x4 1つ分のサイズを用意する
 	ID3D12Resource* wvpResource = CreateBufferResource(device, sizeof(TransformtionMatrix));
@@ -710,7 +712,7 @@ int WINAPI WinMain(
 	vertexDataSprite[5].normal = { 0.0f, 0.0f, -1.0f };
 
 	// Sprite用のTransformationMatrix
-	ID3D12Resource* transformationMatrixResourceSprite = CreateBufferResource(device, sizeof(Matrix4x4));
+	ID3D12Resource* transformationMatrixResourceSprite = CreateBufferResource(device, sizeof(TransformtionMatrix));
 	// データを書き込む
 	Matrix4x4* transformationMatrixDataSprite = nullptr;
 	// 書き込むためのアドレスを取得
@@ -733,8 +735,8 @@ int WINAPI WinMain(
 	DirectionalLight* directionalLightData = nullptr;
 	directionalLightResource->Map(0, nullptr, reinterpret_cast<void**>(&directionalLightData));
 	// デフォルト値
-	directionalLightData->color = { 1.0f, 1.0f, 1.0f, 1.0f };
-	directionalLightData->direction = { 0.0f, -1.0f, 0.0f };
+	directionalLightData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+	directionalLightData->direction = Vector3(0.0f, -1.0f, 0.0f);
 	directionalLightData->intensity = 1.0f;
 
 	MSG msg{};
@@ -763,6 +765,7 @@ int WINAPI WinMain(
 			//開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
 			ImGui::Begin("Debug");
 			ImGui::Checkbox("useMonsterBall", &useMonsterBall);
+			ImGui::DragFloat3("directionalLight", &directionalLightData->direction.x, 0.01f);
 			/*ImGui::SliderFloat3("transformationSprite", &transformSprite.translate.x, -1000.0f, 1000.0f, "%0.3f");*/
 			ImGui::End();
 			ImGui::ShowDemoWindow();
