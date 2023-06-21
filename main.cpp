@@ -882,6 +882,8 @@ int WINAPI WinMain(
 
 
 	CloseHandle(fenceEvent);
+	directionalLightResource->Release();
+	materialResourceSprite->Release();
 	intermediateResource2->Release();
 	textureResource2->Release();
 	transformationMatrixResourceSprite->Release();
