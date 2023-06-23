@@ -105,6 +105,8 @@ struct VertexData {
 struct Material {
 	Vector4 color;
 	int32_t enableLighting;
+	float padding[3];
+	Matrix4x4 uvTransform;
 };
 
 struct TransformtionMatrix {
@@ -601,6 +603,7 @@ int WINAPI WinMain(
 	//今回は赤を書き込んでみる
 	materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
 	materialData->enableLighting = true;
+	materialData->uvTransform = MakeIdentity4x4();
 
 	//WVP用のリソースを作る。Matrix4x4 1つ分のサイズを用意する
 	ID3D12Resource* wvpResource = CreateBufferResource(device, sizeof(TransformtionMatrix));
@@ -738,6 +741,13 @@ int WINAPI WinMain(
 	materialResourceSprite->Map(0, nullptr, reinterpret_cast<void**>(&materialDataSprite));
 	materialDataSprite->color = { 1, 1, 1,1 };
 	materialDataSprite->enableLighting = false;
+	materialDataSprite->uvTransform = MakeIdentity4x4();
+
+	Transform uvTransformSprite{
+		{1.0f, 1.0f, 1.0f},
+		{0.0f, 0.0f, 0.0f},
+		{0.0f, 0.0f, 0.0f}
+	};
 
 	ID3D12Resource* directionalLightResource = CreateBufferResource(device, sizeof(DirectionalLight));
 	DirectionalLight* directionalLightData = nullptr;
@@ -774,6 +784,9 @@ int WINAPI WinMain(
 			ImGui::Begin("Debug");
 			ImGui::Checkbox("useMonsterBall", &useMonsterBall);
 			ImGui::DragFloat3("directionalLight", &directionalLightData->direction.x, 0.01f);
+			ImGui::DragFloat2("UVTranslate", &uvTransformSprite.translate.x, 0.01f, -10.0f, 10.0f);
+			ImGui::DragFloat2("UVScale", &uvTransformSprite.scale.x, 0.01f, -10.0f, 10.0f);
+			ImGui::SliderAngle("UVRotate", &uvTransformSprite.rotate.z);
 			/*ImGui::SliderFloat3("transformationSprite", &transformSprite.translate.x, -1000.0f, 1000.0f, "%0.3f");*/
 			ImGui::End();
 			ImGui::ShowDemoWindow();
@@ -882,7 +895,10 @@ int WINAPI WinMain(
 			Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
 			wvpData->WVP = worldViewProjectionMatrix;
 			
-			
+			Matrix4x4 uvTransformMatrix = MakeScaleMatrix(uvTransformSprite.scale);
+			uvTransformMatrix = Multiply(uvTransformMatrix, MakeRotateXMatrix(uvTransformSprite.rotate.z));
+			uvTransformMatrix = Multiply(uvTransformMatrix, MakeTranslateMatrix(uvTransformSprite.translate));
+			materialDataSprite->uvTransform = uvTransformMatrix;
 			
 		
 		}
