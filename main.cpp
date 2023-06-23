@@ -484,16 +484,24 @@ int WINAPI WinMain(
 	hr = device->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineState));
 	assert(SUCCEEDED(hr));
 
-	ID3D12Resource* vertexResource = CreateBufferResource(device, sizeof(VertexData) * kSubdivision * kSubdivision * 6/*sizeof(VertexData) * 6*/);
-
+	ID3D12Resource* vertexResource = CreateBufferResource(device, sizeof(VertexData) * kSubdivision * kSubdivision * 4/*sizeof(VertexData) * 6*/);
+	ID3D12Resource* indexResource = CreateBufferResource(device, sizeof(uint32_t) * kSubdivision * kSubdivision * 6);
 	// 頂点バッファビューを作成する
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
+	D3D12_INDEX_BUFFER_VIEW indexBufferView{};
 	// リソースの先頭のアドレスから使う
 	vertexBufferView.BufferLocation = vertexResource->GetGPUVirtualAddress();
+	indexBufferView.BufferLocation = indexResource->GetGPUVirtualAddress();
 	// 使用するリソースのサイズは頂点3つ分のサイズ
-	vertexBufferView.SizeInBytes = sizeof(VertexData) * kSubdivision * kSubdivision * 6/*sizeof(VertexData) * 6*/;
+	vertexBufferView.SizeInBytes = sizeof(VertexData) * kSubdivision * kSubdivision * 4/*sizeof(VertexData) * 6*/;
+	indexBufferView.SizeInBytes = sizeof(uint32_t) * kSubdivision * kSubdivision * 6;
 	// 1頂点当たりのサイズ
 	vertexBufferView.StrideInBytes = sizeof(VertexData);
+	// インデックスはuint32_tとする
+	indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+	uint32_t* indexData = nullptr;
+	indexResource->Map(0, nullptr, reinterpret_cast<void**>(&indexData));
+	
 
 	// 頂点リソースにデータを書き込む
 	VertexData* vertexData = nullptr;
@@ -509,7 +517,7 @@ int WINAPI WinMain(
 		float v = 1.0f - float(latIndex) / float(kSubdivision);
 		// 経度の方向に分割しながら線を描く
 		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
-			uint32_t start = (latIndex * kSubdivision + lonIndex) * 6;
+			uint32_t start = (latIndex * kSubdivision + lonIndex) * 4;
 			float lon = lonIndex * kLonEvery;// φ
 			float u = float(lonIndex) / float(kSubdivision);
 
@@ -540,36 +548,28 @@ int WINAPI WinMain(
 			vertexData[start + 2].normal.x = vertexData[start + 2].position.x;
 			vertexData[start + 2].normal.y = vertexData[start + 2].position.y;
 			vertexData[start + 2].normal.z = vertexData[start + 2].position.z;
-			// b
-			vertexData[start + 3].position.x = cos(lat + kLatEvery) * cos(lon);
+			// d
+			vertexData[start + 3].position.x = cos(lat + kLatEvery) * cos(lon + kLonEvery);
 			vertexData[start + 3].position.y = sin(lat + kLatEvery);
-			vertexData[start + 3].position.z = cos(lat + kLatEvery) * sin(lon);
+			vertexData[start + 3].position.z = cos(lat + kLatEvery) * sin(lon + kLonEvery);
 			vertexData[start + 3].position.w = 1.0f;
-			vertexData[start + 3].texcoord = { u, v };
+			vertexData[start + 3].texcoord = { u + 1.0f / float(kSubdivision), v };
 			vertexData[start + 3].normal.x = vertexData[start + 3].position.x;
 			vertexData[start + 3].normal.y = vertexData[start + 3].position.y;
 			vertexData[start + 3].normal.z = vertexData[start + 3].position.z;
-			// d
-			vertexData[start + 4].position.x = cos(lat + kLatEvery) * cos(lon + kLonEvery);
-			vertexData[start + 4].position.y = sin(lat + kLatEvery);
-			vertexData[start + 4].position.z = cos(lat + kLatEvery) * sin(lon + kLonEvery);
-			vertexData[start + 4].position.w = 1.0f;
-			vertexData[start + 4].texcoord = { u + 1.0f / float(kSubdivision), v };
-			vertexData[start + 4].normal.x = vertexData[start + 4].position.x;
-			vertexData[start + 4].normal.y = vertexData[start + 4].position.y;
-			vertexData[start + 4].normal.z = vertexData[start + 4].position.z;
-			// c
-			vertexData[start + 5].position.x = cos(lat) * cos(lon + kLonEvery);
-			vertexData[start + 5].position.y = sin(lat);
-			vertexData[start + 5].position.z = cos(lat) * sin(lon + kLonEvery);
-			vertexData[start + 5].position.w = 1.0f;
-			vertexData[start + 5].texcoord = { u + 1.0f / float(kSubdivision) , v + 1.0f / float(kSubdivision) };
-			vertexData[start + 5].normal.x = vertexData[start + 5].position.x;
-			vertexData[start + 5].normal.y = vertexData[start + 5].position.y;
-			vertexData[start + 5].normal.z = vertexData[start + 5].position.z;
+		}
 
-
-
+	}
+	for (uint32_t latIndex = 0; latIndex < kSubdivision; ++latIndex) {
+		for (uint32_t lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
+			uint32_t start = (latIndex * kSubdivision + lonIndex) * 6;
+			uint32_t i = (latIndex * kSubdivision + lonIndex) * 4;
+			indexData[start] = i;
+			indexData[start + 1] = i + 1;
+			indexData[start + 2] = i + 2;
+			indexData[start + 3] = i + 1;
+			indexData[start + 4] = i + 3;
+			indexData[start + 5] = i + 2;
 		}
 
 	}
@@ -678,18 +678,33 @@ int WINAPI WinMain(
 
 	// Sprite用の頂点リソースを作る
 	ID3D12Resource* vertexResourceSprite = CreateBufferResource(device, sizeof(VertexData) * 6);
+	ID3D12Resource* indexResourceSprite = CreateBufferResource(device, sizeof(uint32_t) * 6);
 
 	// 頂点バッファビューを作成する
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferViewSprite{};
+	D3D12_INDEX_BUFFER_VIEW indexBufferViewSprite{};
 	// リソースの先頭のアドレスから使う
 	vertexBufferViewSprite.BufferLocation = vertexResourceSprite->GetGPUVirtualAddress();
+	indexBufferViewSprite.BufferLocation = indexResourceSprite->GetGPUVirtualAddress();
 	// 使用するリソースのサイズは頂点6つ分のサイズ
-	vertexBufferViewSprite.SizeInBytes = sizeof(VertexData) * 6;
+	vertexBufferViewSprite.SizeInBytes = sizeof(VertexData) * 4;
+	indexBufferViewSprite.SizeInBytes = sizeof(uint32_t) * 6 ;
 	//1頂点あたりのサイズ
 	vertexBufferViewSprite.StrideInBytes = sizeof(VertexData);
+	// インデックスはuint32_tとする
+	indexBufferViewSprite.Format = DXGI_FORMAT_R32_UINT;
 
 	VertexData* vertexDataSprite = nullptr;
 	vertexResourceSprite->Map(0, nullptr, reinterpret_cast<void**>(&vertexDataSprite));
+	// インデックスリソースにデータを書き込む
+	uint32_t* indexDataSprite = nullptr;
+	indexResourceSprite->Map(0, nullptr, reinterpret_cast<void**>(&indexDataSprite));
+	indexDataSprite[0] = 0;
+	indexDataSprite[1] = 1;
+	indexDataSprite[2] = 2;
+	indexDataSprite[3] = 1;
+	indexDataSprite[4] = 3;
+	indexDataSprite[5] = 2;
 	// 1枚目の三角形
 	vertexDataSprite[0].position = { 0.0f, 360.0f, 0.0f, 1.0f }; // 左下
 	vertexDataSprite[0].texcoord = { 0.0f, 1.0f };
@@ -700,16 +715,9 @@ int WINAPI WinMain(
 	vertexDataSprite[2].position = { 640.0f, 360.0f, 0.0f, 1.0f }; // 右下
 	vertexDataSprite[2].texcoord = { 1.0f, 1.0f };
 	vertexDataSprite[2].normal = { 0.0f, 0.0f, -1.0f };
-	// 2枚目の三角形
-	vertexDataSprite[3].position = { 0.0f, 0.0f, 0.0f, 1.0f }; // 左下
-	vertexDataSprite[3].texcoord = { 0.0f, 0.0f };
+	vertexDataSprite[3].position = { 640.0f, 0.0f, 0.0f, 1.0f }; // 右上
+	vertexDataSprite[3].texcoord = { 1.0f, 0.0f };
 	vertexDataSprite[3].normal = { 0.0f, 0.0f, -1.0f };
-	vertexDataSprite[4].position = { 640.0f, 0.0f, 0.0f, 1.0f }; // 左上
-	vertexDataSprite[4].texcoord = { 1.0f, 0.0f };
-	vertexDataSprite[4].normal = { 0.0f, 0.0f, -1.0f };
-	vertexDataSprite[5].position = { 640.0f, 360.0f, 0.0f, 1.0f }; // 右下
-	vertexDataSprite[5].texcoord = { 1.0f, 1.0f };
-	vertexDataSprite[5].normal = { 0.0f, 0.0f, -1.0f };
 
 	// Sprite用のTransformationMatrix
 	ID3D12Resource* transformationMatrixResourceSprite = CreateBufferResource(device, sizeof(TransformtionMatrix));
@@ -805,6 +813,7 @@ int WINAPI WinMain(
 			commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // VBVを設定
 			// 形状を設定。PSOに設定しているものとはまた別。同じものを設定すると考えておけば良い
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			commandList->IASetIndexBuffer(&indexBufferView);
 			//マテリアル用のCBufferの場所を設定
 			commandList->SetGraphicsRootConstantBufferView(0, materialResource->GetGPUVirtualAddress());
 			//wvp用のCBufferの場所を設定
@@ -814,17 +823,20 @@ int WINAPI WinMain(
 			//SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
 			commandList->SetGraphicsRootDescriptorTable(2, useMonsterBall ? textureSrvHandleGPU2 : textureSrvHandleGPU);
 			// 描画!(DrawCall/ドローコール)。3頂点で1つのインスタンス。インスタンスについては今後
-			commandList->DrawInstanced((kSubdivision * kSubdivision * 6), 1, 0, 0);
-
+			//commandList->DrawInstanced((kSubdivision * kSubdivision * 6), 1, 0, 0);
+			commandList->DrawIndexedInstanced(kSubdivision * kSubdivision * 6, 1, 0, 0, 0);
+			
 			// Spriteの描画。変更が必要なものだけ変更する
 			commandList->IASetVertexBuffers(0, 1, &vertexBufferViewSprite); // VBVを設定
+			commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
 			commandList->SetGraphicsRootConstantBufferView(0, materialResourceSprite->GetGPUVirtualAddress());
 			// TransformationMatrixCBufferの場所を設定
 			commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
 			//SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
 			commandList->SetGraphicsRootDescriptorTable(2,textureSrvHandleGPU);
 			// 描画!(DrawCall/ドローコール)。3頂点で1つのインスタンス。インスタンスについては今後
-			commandList->DrawInstanced( 6, 1, 0, 0);
+			//commandList->DrawInstanced(6, 1, 0, 0);
+			commandList->DrawIndexedInstanced( 6, 1, 0, 0, 0);
 
 			//実際のcommandListのImGuiの描画コマンドを積む
 			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
@@ -882,6 +894,8 @@ int WINAPI WinMain(
 
 
 	CloseHandle(fenceEvent);
+	indexResourceSprite->Release();
+	indexResource->Release();
 	directionalLightResource->Release();
 	materialResourceSprite->Release();
 	intermediateResource2->Release();
